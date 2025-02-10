@@ -28,16 +28,16 @@ def create_html_report(benchmarks, plot_path, output_dir, total_time_ms):
     <body>
         <h1>CUDA Benchmark Performance Report</h1>
         <p class="timestamp">Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-        
+
         <div class="total-time">
             <h2>Total Test Time: {total_time_ms:.2f} ms</h2>
         </div>
-        
+
         <div class="plot">
             <h2>Performance Overview</h2>
             <img src="{os.path.basename(plot_path)}" alt="Performance Plot" style="max-width: 100%;">
         </div>
-        
+
         <h2>Detailed Results</h2>
     """
 
@@ -85,58 +85,87 @@ def create_html_report(benchmarks, plot_path, output_dir, total_time_ms):
     </body>
     </html>
     """
-    
+
     with open(f"{output_dir}/report.html", 'w') as f:
         f.write(html_content)
 
 def create_performance_plot(benchmarks, output_dir):
     """Create performance visualization"""
     df = pd.DataFrame(benchmarks)
-    
+
     plt.figure(figsize=(12, 6))
-    
+
     # Create subplot for kernel time
     plt.subplot(1, 2, 1)
     sns.barplot(data=df, x='name', y='KernelTime_ms')
     plt.xticks(rotation=45, ha='right')
     plt.title('Kernel Execution Time')
     plt.ylabel('Time (ms)')
-    
+
     # Create subplot for bandwidth
     plt.subplot(1, 2, 2)
     sns.barplot(data=df, x='name', y='Bandwidth_GB/s')
     plt.xticks(rotation=45, ha='right')
     plt.title('Memory Bandwidth')
     plt.ylabel('GB/s')
-    
+
     plt.tight_layout()
     plt.savefig(f"{output_dir}/benchmark_plot.png")
     plt.close()
 
 def process_benchmark_results(json_file):
-    """Process benchmark results and generate reports"""
+    """Process benchmark results and generate reports."""
     output_dir = os.path.dirname(json_file)
-    
+
     # Read benchmark results
     with open(json_file) as f:
         data = json.load(f)
-    
-    benchmarks = data['benchmarks']
-    
+
+    benchmarks = data.get('benchmarks', [])
+
     # Create markdown report
     report = []
     report.append("# CUDA Benchmark Performance Report\n")
     report.append(f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    
+
+    # Track failed benchmarks
+    failed_benchmarks = []
+    successful_benchmarks = []
+
     total_time = 0
     for benchmark in benchmarks:
         name = benchmark['name']
+
+        # Check if this benchmark had an error
+        if benchmark.get('error_occurred', False):
+            error_msg = benchmark.get('error_message', 'Unknown error')
+            failed_benchmarks.append((name, error_msg))
+            continue
+
         kernel_time = benchmark.get('KernelTime_ms', 'N/A')
         bandwidth = benchmark.get('Bandwidth_GB/s', 0)
         gflops = benchmark.get('GFLOPS', 0)
         size_kb = benchmark.get('Size_KB', 0)
         total_test_time = benchmark.get('TotalTime_ms', 0)
         total_time += total_test_time
+
+        successful_benchmarks.append((name, size_kb, kernel_time, bandwidth, gflops, total_test_time))
+
+    # First report failed benchmarks
+    if failed_benchmarks:
+        report.append("\n## Failed Benchmarks\n")
+        for name, error in failed_benchmarks:
+            report.append(f"### {name}\n")
+            report.append(f"Error: {error}\n")
+
+    # Then report successful benchmarks
+    for name, size_kb, kernel_time, bandwidth, gflops, total_test_time in successful_benchmarks:
+        print(f"## {name}\n")
+        print(f"- Data Size: {size_kb:.2f} KB")
+        print(f"- Kernel Time: {kernel_time:.6f} ms")
+        print(f"- Memory Bandwidth: {bandwidth:.2f} GB/s")
+        print(f"- Compute Throughput: {gflops:.2f} GFLOPS")
+        print(f"- Total Test Time: {total_test_time:.2f} ms\n")
 
         report.append(f"## {name}\n")
         report.append(f"- Data Size: {size_kb:.2f} KB")
@@ -145,10 +174,10 @@ def process_benchmark_results(json_file):
         report.append(f"- Compute Throughput: {gflops:.2f} GFLOPS")
         report.append(f"- Total Test Time: {total_test_time:.2f} ms\n")
 
-    report.append(f"\n## Summary\n")
-    report.append(f"Total Execution Time: {total_time/1000:.2f} s")
-    
-    # Write report
+    report.append("\n## Summary\n")
+    report.append(f"Total Execution Time: {total_time/1000:.2f} s\n")
+
+    # Write report to file
     with open(f"{output_dir}/report.md", 'w') as f:
         f.write('\n'.join(report))
 
@@ -156,5 +185,5 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         print("Usage: python process_benchmark.py <benchmark_results.json>")
         sys.exit(1)
-    
-    process_benchmark_results(sys.argv[1]) 
+
+    process_benchmark_results(sys.argv[1])

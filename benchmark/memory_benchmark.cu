@@ -152,7 +152,7 @@ static void BM_CudaMemcpyH2D(benchmark::State& state) {
     BM_CudaMemcpy(state, cudaMemcpyHostToDevice);
 }
 
-// Register benchmarks
+// Register host memory allocation benchmark
 BENCHMARK(BM_CudaMallocHost)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)
@@ -160,6 +160,7 @@ BENCHMARK(BM_CudaMallocHost)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
+// Register device memory allocation benchmark
 BENCHMARK(BM_CudaMalloc)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)
@@ -167,6 +168,7 @@ BENCHMARK(BM_CudaMalloc)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
+// Register device-to-host memory copy benchmark
 BENCHMARK(BM_CudaMemcpyD2H)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)
@@ -174,6 +176,7 @@ BENCHMARK(BM_CudaMemcpyD2H)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
+// Register host-to-device memory copy benchmark
 BENCHMARK(BM_CudaMemcpyH2D)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)

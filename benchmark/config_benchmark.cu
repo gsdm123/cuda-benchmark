@@ -156,7 +156,7 @@ static void BM_SharedMemConfig(benchmark::State& state) {
     }
 }
 
-// Register benchmarks
+// Register cache configuration benchmark
 BENCHMARK(BM_CacheConfig)
     ->RangeMultiplier(2)
     ->Ranges({{1 << 8, 1 << 10}, {cudaFuncCachePreferNone, cudaFuncCachePreferL1}})
@@ -164,6 +164,7 @@ BENCHMARK(BM_CacheConfig)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
+// Register shared memory configuration benchmark
 BENCHMARK(BM_SharedMemConfig)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)

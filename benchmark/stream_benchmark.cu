@@ -216,18 +216,18 @@ static void BM_StreamConcurrency(benchmark::State& state) {
     }
 }
 
-// Register stream creation and destruction tests
+// Register stream creation and destruction benchmark
 BENCHMARK(BM_StreamCreateDestroy)
     ->UseManualTime()
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
-// Register stream synchronization tests
+// Register stream synchronization benchmark
 BENCHMARK(BM_StreamSynchronize)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
-// Register multi-stream concurrency tests
+// Register multi-stream concurrency benchmark
 BENCHMARK(BM_StreamConcurrency)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)

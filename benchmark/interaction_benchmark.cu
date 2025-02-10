@@ -48,7 +48,7 @@ static void BM_HostPreprocess(benchmark::State& state) {
             delete[] h_data;
             throw;
         }
-        
+
         auto end_total = std::chrono::high_resolution_clock::now();
         metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
         state.counters["TotalTime_ms"] = metrics.total_time;
@@ -173,7 +173,7 @@ static void BM_KernelLaunchOverhead(benchmark::State& state) {
     }
 }
 
-// Register benchmarks
+// Register host preprocess benchmark
 BENCHMARK(BM_HostPreprocess)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)
@@ -181,6 +181,7 @@ BENCHMARK(BM_HostPreprocess)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
+// Register host-device interaction benchmark
 BENCHMARK(BM_HostDeviceInteraction)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)
@@ -188,6 +189,7 @@ BENCHMARK(BM_HostDeviceInteraction)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
+// Register kernel launch overhead benchmark
 BENCHMARK(BM_KernelLaunchOverhead)
     ->UseManualTime()
     ->Unit(benchmark::kMicrosecond)

@@ -161,25 +161,25 @@ static void BM_CudaEventCreateDestroy(benchmark::State& state) {
     }
 }
 
-// Register setDevice benchmark test
+// Register setDevice benchmark
 BENCHMARK(BM_CudaSetDevice)
     ->UseManualTime()
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
-// Register getDeviceProperties benchmark test
+// Register getDeviceProperties benchmark
 BENCHMARK(BM_CudaGetDeviceProperties)
     ->UseManualTime()
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
-// Register deviceSynchronize benchmark test
+// Register deviceSynchronize benchmark
 BENCHMARK(BM_CudaDeviceSynchronize)
     ->UseManualTime()
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
-// Register eventCreateDestroy benchmark test
+// Register eventCreateDestroy benchmark
 BENCHMARK(BM_CudaEventCreateDestroy)
     ->UseManualTime()
     ->Unit(benchmark::kMicrosecond)

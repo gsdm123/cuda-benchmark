@@ -74,8 +74,6 @@ static void BM_UnifiedMemoryAccess(benchmark::State& state) {
             CUDA_CHECK(cudaMallocManaged(&data, N * sizeof(float)));
             std::fill_n(data, N, 1.0f);
 
-            // Prefetch to GPU
-            CUDA_CHECK(cudaMemPrefetchAsync(data, N * sizeof(float), 0));
             CUDA_CHECK(cudaDeviceSynchronize());
 
             // Configure kernel
@@ -179,7 +177,7 @@ static void BM_UnifiedMemoryMigration(benchmark::State& state) {
     }
 }
 
-// Register benchmarks
+// Register unified memory allocation and free benchmark
 BENCHMARK(BM_UnifiedMemoryAllocFree)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)
@@ -187,6 +185,7 @@ BENCHMARK(BM_UnifiedMemoryAllocFree)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
+// Register unified memory access benchmark
 BENCHMARK(BM_UnifiedMemoryAccess)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)
@@ -194,6 +193,7 @@ BENCHMARK(BM_UnifiedMemoryAccess)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
+// Register unified memory migration benchmark
 BENCHMARK(BM_UnifiedMemoryMigration)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)

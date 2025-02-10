@@ -194,7 +194,7 @@ static void BM_CooperativeGroups(benchmark::State& state) {
 
         try {
             CUDA_CHECK(cudaMalloc(&d_data, N * sizeof(float)));
-            
+
             // Check cooperative launch support
             int deviceId;
             CUDA_CHECK(cudaGetDevice(&deviceId));
@@ -254,7 +254,7 @@ static void BM_CooperativeGroups(benchmark::State& state) {
     }
 }
 
-// Register benchmarks
+// Register warp shuffle benchmark
 BENCHMARK(BM_WarpShuffle)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)
@@ -262,6 +262,7 @@ BENCHMARK(BM_WarpShuffle)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
+// Register warp ballot benchmark
 BENCHMARK(BM_WarpBallot)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)

@@ -297,7 +297,7 @@ static void BM_KernelReduce(benchmark::State& state) {
     }
 }
 
-// Register benchmarks
+// Register vector addition benchmark
 BENCHMARK(BM_KernelVectorAdd)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)
@@ -305,6 +305,7 @@ BENCHMARK(BM_KernelVectorAdd)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
+// Register matrix multiplication benchmark
 BENCHMARK(BM_KernelMatrixMul)
     ->RangeMultiplier(2)
     ->Range(1 << 4, 1 << 6)  // Smaller range for matrix multiplication
@@ -312,7 +313,7 @@ BENCHMARK(BM_KernelMatrixMul)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
-// Register reduction benchmark test
+// Register reduction benchmark
 BENCHMARK(BM_KernelReduce)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)

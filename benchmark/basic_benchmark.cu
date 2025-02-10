@@ -107,7 +107,7 @@ static void BM_VectorAdd(benchmark::State& state) {
     }
 }
 
-// Register benchmark
+// Register vector addition benchmark
 BENCHMARK(BM_VectorAdd)
     ->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 10)

@@ -29,11 +29,17 @@
 
 ## 构建和运行
 
+### 下载 google test 和 google benchmark
 ```bash
-mkdir build && cd build
-cmake ..
-make
-./cuda_benchmark
+./scripts/download_deps.sh
+
+```
+
+### 运行
+
+```bash
+# 可能需要修改 CUDA Toolkit 版本
+./scripts/build.sh
 ```
 
 ## 输出说明

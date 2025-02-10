@@ -7,23 +7,23 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 setup_cuda_env() {
     local cuda_version=$1
     local cuda_path="/usr/local/cuda-${cuda_version}"
-    
+
     if [ ! -d "$cuda_path" ]; then
         echo "CUDA ${cuda_version} not found at ${cuda_path}"
         return 1
     fi
-    
+
     export PATH="${cuda_path}/bin:$PATH"
     export LD_LIBRARY_PATH="${cuda_path}/lib64:$LD_LIBRARY_PATH"
     export CUDA_HOME="${cuda_path}"
     export CUDA_PATH="${cuda_path}"
-    
+
     echo "Using CUDA ${cuda_version} from ${cuda_path}"
     return 0
 }
 
 # Parse command line arguments
-CUDA_VERSION=${1:-"12.8"}  # Default to CUDA 12.8 if not specified
+CUDA_VERSION=${1:-"12.6"}  # Default to CUDA 12.6 if not specified
 
 # Setup CUDA environment
 if ! setup_cuda_env "$CUDA_VERSION"; then
