@@ -77,10 +77,13 @@ if [ -f "benchmark/run_benchmark" ]; then
 - [HTML报告](report.html)
 - [Markdown报告](report.md)
 - [原始数据](benchmark_results.json)
+
+查看完整的 HTML 报告请打开: ${RESULT_DIR}/report.html
 EOF
 
     echo "Results saved in: ${RESULT_DIR}"
     echo "View summary at: ${RESULT_DIR}/summary.md"
+    echo "View HTML report at: ${RESULT_DIR}/report.html"
 else
     echo "Error: benchmark executable not found"
     exit 1

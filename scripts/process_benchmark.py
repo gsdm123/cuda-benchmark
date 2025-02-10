@@ -123,7 +123,23 @@ def process_benchmark_results(json_file):
 
     benchmarks = data.get('benchmarks', [])
 
-    # Create markdown report
+    # Get total time
+    total_time = 0
+    processed_benchmarks = []
+
+    for benchmark in benchmarks:
+        if not benchmark.get('error_occurred', False):
+            total_time += benchmark.get('TotalTime_ms', 0)
+            processed_benchmarks.append(benchmark)
+
+    # Create performance plot
+    plot_path = f"{output_dir}/benchmark_plot.png"
+    create_performance_plot(processed_benchmarks, output_dir)
+
+    # Generate HTML report
+    create_html_report(processed_benchmarks, plot_path, output_dir, total_time)
+
+    # Create Markdown report
     report = []
     report.append("# CUDA Benchmark Performance Report\n")
     report.append(f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -132,8 +148,7 @@ def process_benchmark_results(json_file):
     failed_benchmarks = []
     successful_benchmarks = []
 
-    total_time = 0
-    for benchmark in benchmarks:
+    for benchmark in processed_benchmarks:
         name = benchmark['name']
 
         # Check if this benchmark had an error
@@ -147,7 +162,6 @@ def process_benchmark_results(json_file):
         gflops = benchmark.get('GFLOPS', 0)
         size_kb = benchmark.get('Size_KB', 0)
         total_test_time = benchmark.get('TotalTime_ms', 0)
-        total_time += total_test_time
 
         successful_benchmarks.append((name, size_kb, kernel_time, bandwidth, gflops, total_test_time))
 
@@ -177,7 +191,7 @@ def process_benchmark_results(json_file):
     report.append("\n## Summary\n")
     report.append(f"Total Execution Time: {total_time/1000:.2f} s\n")
 
-    # Write report to file
+    # Write Markdown report
     with open(f"{output_dir}/report.md", 'w') as f:
         f.write('\n'.join(report))
 
