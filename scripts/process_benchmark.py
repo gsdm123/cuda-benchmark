@@ -8,7 +8,7 @@ import json
 import os
 from datetime import datetime
 
-def create_html_report(benchmarks, plot_path, output_dir, total_time_ms):
+def create_html_report(benchmarks, output_dir, total_time_ms):
     """Create HTML format report"""
     html_content = f"""
     <html>
@@ -35,7 +35,8 @@ def create_html_report(benchmarks, plot_path, output_dir, total_time_ms):
 
         <div class="plot">
             <h2>Performance Overview</h2>
-            <img src="{os.path.basename(plot_path)}" alt="Performance Plot" style="max-width: 100%;">
+            <img src="kernel_time_plot.svg" alt="Kernel Time Plot" style="max-width: 100%;">
+            <img src="bandwidth_plot.svg" alt="Bandwidth Plot" style="max-width: 100%;">
         </div>
 
         <h2>Detailed Results</h2>
@@ -44,6 +45,8 @@ def create_html_report(benchmarks, plot_path, output_dir, total_time_ms):
     # Add benchmark results
     for benchmark in benchmarks:
         name = benchmark['name']
+        if benchmark.get('run_type') == 'iteration':
+            name += f" (Repetition {benchmark.get('repetition_index', 0)})"
         time = benchmark['real_time']
         size = benchmark.get('Size_KB', 0)
         kernel_time = benchmark.get('KernelTime_ms', 0)
@@ -89,29 +92,29 @@ def create_html_report(benchmarks, plot_path, output_dir, total_time_ms):
     with open(f"{output_dir}/report.html", 'w') as f:
         f.write(html_content)
 
+import plotly.express as px
+
 def create_performance_plot(benchmarks, output_dir):
     """Create performance visualization"""
     df = pd.DataFrame(benchmarks)
 
-    plt.figure(figsize=(12, 6))
+    # Create a bar plot for kernel time
+    fig1 = px.bar(df, x='name', y='KernelTime_ms', title='Kernel Execution Time',
+                  labels={'KernelTime_ms': 'Time (ms)', 'name': 'Benchmark Name'},
+                  text='KernelTime_ms')
+    fig1.update_traces(texttemplate='%{text:.3f}', textposition='outside')
+    fig1.update_layout(xaxis_tickangle=-45, width=800, height=400)
 
-    # Create subplot for kernel time
-    plt.subplot(1, 2, 1)
-    sns.barplot(data=df, x='name', y='KernelTime_ms')
-    plt.xticks(rotation=45, ha='right')
-    plt.title('Kernel Execution Time')
-    plt.ylabel('Time (ms)')
+    # Create a bar plot for bandwidth
+    fig2 = px.bar(df, x='name', y='Bandwidth_GB/s', title='Memory Bandwidth',
+                  labels={'Bandwidth_GB/s': 'GB/s', 'name': 'Benchmark Name'},
+                  text='Bandwidth_GB/s')
+    fig2.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+    fig2.update_layout(xaxis_tickangle=-45, width=800, height=400)
 
-    # Create subplot for bandwidth
-    plt.subplot(1, 2, 2)
-    sns.barplot(data=df, x='name', y='Bandwidth_GB/s')
-    plt.xticks(rotation=45, ha='right')
-    plt.title('Memory Bandwidth')
-    plt.ylabel('GB/s')
-
-    plt.tight_layout()
-    plt.savefig(f"{output_dir}/benchmark_plot.png")
-    plt.close()
+    # Save the figures
+    fig1.write_image(f"{output_dir}/kernel_time_plot.svg")
+    fig2.write_image(f"{output_dir}/bandwidth_plot.svg")
 
 def process_benchmark_results(json_file):
     """Process benchmark results and generate reports."""
@@ -133,11 +136,10 @@ def process_benchmark_results(json_file):
             processed_benchmarks.append(benchmark)
 
     # Create performance plot
-    plot_path = f"{output_dir}/benchmark_plot.png"
     create_performance_plot(processed_benchmarks, output_dir)
 
     # Generate HTML report
-    create_html_report(processed_benchmarks, plot_path, output_dir, total_time)
+    create_html_report(processed_benchmarks, output_dir, total_time)
 
     # Create Markdown report
     report = []
@@ -157,13 +159,15 @@ def process_benchmark_results(json_file):
             failed_benchmarks.append((name, error_msg))
             continue
 
+        run_type = benchmark.get('run_type', 'N/A')
+        repetition_index = benchmark.get('repetition_index', 0)
         kernel_time = benchmark.get('KernelTime_ms', 'N/A')
         bandwidth = benchmark.get('Bandwidth_GB/s', 0)
         gflops = benchmark.get('GFLOPS', 0)
         size_kb = benchmark.get('Size_KB', 0)
         total_test_time = benchmark.get('TotalTime_ms', 0)
 
-        successful_benchmarks.append((name, size_kb, kernel_time, bandwidth, gflops, total_test_time))
+        successful_benchmarks.append((name, run_type,repetition_index, size_kb, kernel_time, bandwidth, gflops, total_test_time))
 
     # First report failed benchmarks
     if failed_benchmarks:
@@ -173,15 +177,20 @@ def process_benchmark_results(json_file):
             report.append(f"Error: {error}\n")
 
     # Then report successful benchmarks
-    for name, size_kb, kernel_time, bandwidth, gflops, total_test_time in successful_benchmarks:
+    for name, run_type, repetition_index, size_kb, kernel_time, bandwidth, gflops, total_test_time in successful_benchmarks:
         print(f"## {name}\n")
+        print(f"Run Type: {run_type}")
+        print(f"Repetition Index: {repetition_index}")
         print(f"- Data Size: {size_kb:.2f} KB")
         print(f"- Kernel Time: {kernel_time:.6f} ms")
         print(f"- Memory Bandwidth: {bandwidth:.2f} GB/s")
         print(f"- Compute Throughput: {gflops:.2f} GFLOPS")
         print(f"- Total Test Time: {total_test_time:.2f} ms\n")
-
-        report.append(f"## {name}\n")
+    
+        if run_type == 'iteration':
+            report.append(f"## {name} (Repetition {repetition_index})\n")
+        else:
+            report.append(f"## {name}\n")
         report.append(f"- Data Size: {size_kb:.2f} KB")
         report.append(f"- Kernel Time: {kernel_time:.6f} ms")
         report.append(f"- Memory Bandwidth: {bandwidth:.2f} GB/s")
