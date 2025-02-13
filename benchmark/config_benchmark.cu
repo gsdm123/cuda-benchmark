@@ -14,70 +14,101 @@ __global__ void cacheTestKernel(float* data, int n) {
     }
 }
 
+// CPU reference implementation for cache configuration
+void CacheConfigCPUReference(float* data, int n) {
+    for (int i = 0; i < n; i++) {
+        data[i] = data[i] * 2.0f;
+    }
+}
+
 // Cache configuration performance test
 static void BM_CacheConfig(benchmark::State& state) {
-    try {
-        const int N = state.range(0);
-        const cudaFuncCache cacheConfig = (cudaFuncCache)state.range(1);
-        std::cout << "\n[Starting] Cache Config benchmark [size: " << N << ", config: " 
-                  << cacheConfig << "]" << std::endl;
+    auto start_total = std::chrono::high_resolution_clock::now();
 
-        InitCUDA();
-        KernelMetrics metrics;
-        metrics.size_kb = N * sizeof(float) / 1024.0;
+    const int N = state.range(0);
+    const cudaFuncCache cacheConfig = (cudaFuncCache)state.range(1);
+    std::cout << "\n[Starting] Cache Config benchmark [size: " << N << ", config: " << cacheConfig
+              << "]" << std::endl;
 
-        float* d_data = nullptr;
-        auto start_total = std::chrono::high_resolution_clock::now();
+    // Initialize CUDA and metrics
+    InitCUDA();
+    KernelMetrics metrics;
+    metrics.size_kb = N * sizeof(float) / 1024.0;
 
-        try {
-            CUDA_CHECK(cudaMalloc(&d_data, N * sizeof(float)));
-            CUDA_CHECK(cudaFuncSetCacheConfig(cacheTestKernel, cacheConfig));
+    // Allocate and initialize data
+    float* h_data = nullptr;
+    float* d_data = nullptr;
+    // Memory allocation and data initialization
+    h_data = new float[N];
+    std::fill_n(h_data, N, 1.0f);
 
-            // Configure kernel
-            int blockSize = 256;
-            int numBlocks = (N + blockSize - 1) / blockSize;
+#ifdef ENABLE_VERIFICATION
+    // Initialize data for verification
+    float* h_data_cpu = new float[N];
+    std::fill_n(h_data_cpu, N, 1.0f);
+    std::cout << "[CPU] Calculating CPU reference results..." << std::endl;
+    CacheConfigCPUReference(h_data_cpu, N);
+    std::cout << "[CPU] CPU reference results calculated" << std::endl;
+#endif
 
-            // Warm up
-            std::cout << "[Warmup] Running warmup iteration..." << std::endl;
-            cacheTestKernel<<<numBlocks, blockSize>>>(d_data, N);
-            CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaMalloc(&d_data, N * sizeof(float)));
+    CUDA_CHECK(cudaMemcpy(d_data, h_data, N * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaFuncSetCacheConfig(cacheTestKernel, cacheConfig));
 
-            // Benchmark iterations
-            std::cout << "[Running] Executing benchmark iterations..." << std::endl;
-            CUDAEventTimer timer;
+    // Configure kernel
+    int blockSize = 256;
+    int numBlocks = (N + blockSize - 1) / blockSize;
 
-            for (auto _ : state) {
-                timer.Start();
-                cacheTestKernel<<<numBlocks, blockSize>>>(d_data, N);
-                timer.Stop();
+    // Warm up
+    std::cout << "[Warmup] Running warmup iteration..." << std::endl;
+    cacheTestKernel<<<numBlocks, blockSize>>>(d_data, N);
+    CUDA_CHECK(cudaDeviceSynchronize());
 
-                metrics.kernel_time = timer.ElapsedMillis();
-                metrics.bandwidth = (2.0 * N * sizeof(float)) / (metrics.kernel_time * 1e-3) / 1e9;
-                metrics.gflops = (N * 1.0) / (metrics.kernel_time * 1e-3) / 1e9;
-
-                state.SetIterationTime(metrics.kernel_time / 1000.0);
-                state.counters["KernelTime_ms"] = metrics.kernel_time;
-                state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
-                state.counters["GFLOPS"] = metrics.gflops;
-                state.counters["Size_KB"] = metrics.size_kb;
-            }
-
-            CUDA_CHECK(cudaFree(d_data));
-
-        } catch (...) {
-            if (d_data) cudaFree(d_data);
-            throw;
-        }
-
-        auto end_total = std::chrono::high_resolution_clock::now();
-        metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
-        state.counters["TotalTime_ms"] = metrics.total_time;
-
-        CleanupCUDA();
-        std::cout << "[Completed] Cache Config benchmark" << std::endl;
-    } catch (const std::exception& e) {
-        state.SkipWithError(e.what());
+#ifdef ENABLE_VERIFICATION
+    // Verify results
+    std::cout << "[Verify] Verifying cache configuration..." << std::endl;
+    CUDA_CHECK(cudaMemcpy(h_data, d_data, N * sizeof(float), cudaMemcpyDeviceToHost));
+    Verify<float> verifier(h_data, h_data_cpu, N);
+    if (!verifier.VerifyResults()) {
+        state.SkipWithError("Result verification failed");
+        delete[] h_data;
+        delete[] h_data_cpu;
+        return;
     }
+    std::cout << "[Verify] Cache configuration verified" << std::endl;
+#endif
+    delete[] h_data;
+#ifdef ENABLE_VERIFICATION
+    delete[] h_data_cpu;
+#endif
+    // Benchmark iterations
+    std::cout << "[Running] Executing benchmark iterations..." << std::endl;
+    CUDAEventTimer timer;
+
+    for (auto _ : state) {
+        timer.Start();
+        cacheTestKernel<<<numBlocks, blockSize>>>(d_data, N);
+        timer.Stop();
+
+        metrics.kernel_time = timer.ElapsedMillis();
+        metrics.bandwidth = (metrics.size_kb * 1024) / (metrics.kernel_time * 1e-3) / 1e9;
+        metrics.gflops = (1.0 * N) / (metrics.kernel_time * 1e-3) / 1e9;
+
+        state.SetIterationTime(metrics.kernel_time / 1000.0);
+        state.counters["KernelTime_ms"] = metrics.kernel_time;
+        state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
+        state.counters["GFLOPS"] = metrics.gflops;
+        state.counters["Size_KB"] = metrics.size_kb;
+    }
+
+    auto end_total = std::chrono::high_resolution_clock::now();
+    metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
+    state.counters["TotalTime_ms"] = metrics.total_time;
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_data));
+    CleanupCUDA();
+    std::cout << "[Completed] Cache Config benchmark" << std::endl;
 }
 
 // Shared memory test kernel
@@ -93,67 +124,98 @@ __global__ void sharedMemTestKernel(float* data, int n) {
     }
 }
 
+// CPU reference implementation for shared memory configuration
+void SharedMemConfigCPUReference(float* data, int n) {
+    for (int i = 0; i < n; i++) {
+        data[i] = data[i] * 2.0f;
+    }
+}
+
 // Shared memory configuration performance test
 static void BM_SharedMemConfig(benchmark::State& state) {
-    try {
-        const int N = state.range(0);
-        std::cout << "\n[Starting] Shared Memory Config benchmark [size: " << N << "]" << std::endl;
+    auto start_total = std::chrono::high_resolution_clock::now();
+    const int N = state.range(0);
+    std::cout << "\n[Starting] Shared Memory Config benchmark [size: " << N << "]" << std::endl;
 
-        InitCUDA();
-        KernelMetrics metrics;
-        metrics.size_kb = N * sizeof(float) / 1024.0;
+    // Initialize CUDA and metrics
+    InitCUDA();
+    KernelMetrics metrics;
+    metrics.size_kb = N * sizeof(float) / 1024.0;
 
-        float* d_data = nullptr;
-        auto start_total = std::chrono::high_resolution_clock::now();
+    // Allocate and initialize data
+    float* h_data = nullptr;
+    float* d_data = nullptr;
+    // Memory allocation and data initialization
+    h_data = new float[N];
+    std::fill_n(h_data, N, 1.0f);
 
-        try {
-            CUDA_CHECK(cudaMalloc(&d_data, N * sizeof(float)));
+#ifdef ENABLE_VERIFICATION
+    // Initialize data for verification
+    float* h_data_cpu = new float[N];
+    std::fill_n(h_data_cpu, N, 1.0f);
+    std::cout << "[CPU] Calculating CPU reference results..." << std::endl;
+    SharedMemConfigCPUReference(h_data_cpu, N);
+    std::cout << "[CPU] CPU reference results calculated" << std::endl;
+#endif
 
-            // Configure kernel
-            int blockSize = 256;
-            int numBlocks = (N + blockSize - 1) / blockSize;
+    CUDA_CHECK(cudaMalloc(&d_data, N * sizeof(float)));
+    CUDA_CHECK(cudaMemcpy(d_data, h_data, N * sizeof(float), cudaMemcpyHostToDevice));
 
-            // Warm up
-            std::cout << "[Warmup] Running warmup iteration..." << std::endl;
-            sharedMemTestKernel<<<numBlocks, blockSize, blockSize * sizeof(float)>>>(d_data, N);
-            CUDA_CHECK(cudaDeviceSynchronize());
+    // Configure kernel
+    int blockSize = 256;
+    int numBlocks = (N + blockSize - 1) / blockSize;
 
-            // Benchmark iterations
-            std::cout << "[Running] Executing benchmark iterations..." << std::endl;
-            CUDAEventTimer timer;
+    // Warm up
+    std::cout << "[Warmup] Running warmup iteration..." << std::endl;
+    sharedMemTestKernel<<<numBlocks, blockSize, blockSize * sizeof(float)>>>(d_data, N);
+    CUDA_CHECK(cudaDeviceSynchronize());
 
-            for (auto _ : state) {
-                timer.Start();
-                sharedMemTestKernel<<<numBlocks, blockSize, blockSize * sizeof(float)>>>(d_data, N);
-                timer.Stop();
-
-                metrics.kernel_time = timer.ElapsedMillis();
-                metrics.bandwidth = (2.0 * N * sizeof(float)) / (metrics.kernel_time * 1e-3) / 1e9;
-                metrics.gflops = (N * 1.0) / (metrics.kernel_time * 1e-3) / 1e9;
-
-                state.SetIterationTime(metrics.kernel_time / 1000.0);
-                state.counters["KernelTime_ms"] = metrics.kernel_time;
-                state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
-                state.counters["GFLOPS"] = metrics.gflops;
-                state.counters["Size_KB"] = metrics.size_kb;
-            }
-
-            CUDA_CHECK(cudaFree(d_data));
-
-        } catch (...) {
-            if (d_data) cudaFree(d_data);
-            throw;
-        }
-
-        auto end_total = std::chrono::high_resolution_clock::now();
-        metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
-        state.counters["TotalTime_ms"] = metrics.total_time;
-
-        CleanupCUDA();
-        std::cout << "[Completed] Shared Memory Config benchmark" << std::endl;
-    } catch (const std::exception& e) {
-        state.SkipWithError(e.what());
+#ifdef ENABLE_VERIFICATION
+    // Verify results
+    std::cout << "[Verify] Verifying shared memory configuration..." << std::endl;
+    CUDA_CHECK(cudaMemcpy(h_data, d_data, N * sizeof(float), cudaMemcpyDeviceToHost));
+    Verify<float> verifier(h_data, h_data_cpu, N);
+    if (!verifier.VerifyResults()) {
+        state.SkipWithError("Result verification failed");
+        delete[] h_data;
+        delete[] h_data_cpu;
+        return;
     }
+    std::cout << "[Verify] Shared memory configuration verified" << std::endl;
+#endif
+    delete[] h_data;
+#ifdef ENABLE_VERIFICATION
+    delete[] h_data_cpu;
+#endif
+
+    // Benchmark iterations
+    std::cout << "[Running] Executing benchmark iterations..." << std::endl;
+    CUDAEventTimer timer;
+
+    for (auto _ : state) {
+        timer.Start();
+        sharedMemTestKernel<<<numBlocks, blockSize, blockSize * sizeof(float)>>>(d_data, N);
+        timer.Stop();
+
+        metrics.kernel_time = timer.ElapsedMillis();
+        metrics.bandwidth = (metrics.size_kb * 1024) / (metrics.kernel_time * 1e-3) / 1e9;
+        metrics.gflops = (1.0 * N) / (metrics.kernel_time * 1e-3) / 1e9;
+
+        state.SetIterationTime(metrics.kernel_time / 1000.0);
+        state.counters["KernelTime_ms"] = metrics.kernel_time;
+        state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
+        state.counters["GFLOPS"] = metrics.gflops;
+        state.counters["Size_KB"] = metrics.size_kb;
+    }
+
+    auto end_total = std::chrono::high_resolution_clock::now();
+    metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
+    state.counters["TotalTime_ms"] = metrics.total_time;
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_data));
+    CleanupCUDA();
+    std::cout << "[Completed] Shared Memory Config benchmark" << std::endl;
 }
 
 // Register cache configuration benchmark

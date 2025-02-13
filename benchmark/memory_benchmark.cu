@@ -8,140 +8,141 @@
 
 // Host memory allocation performance test
 static void BM_CudaMallocHost(benchmark::State& state) {
-    try {
-        const int N = state.range(0);
-        std::cout << "\n[Starting] CudaMallocHost benchmark [size: " << N << "]" << std::endl;
+    auto start_total = std::chrono::high_resolution_clock::now();
 
-        InitCUDA();
-        KernelMetrics metrics;
-        metrics.size_kb = N * sizeof(float) / 1024.0;
+    const int N = state.range(0);
+    std::cout << "\n[Starting] CudaMallocHost benchmark [size: " << N << "]" << std::endl;
 
-        float* h_data = nullptr;
-        auto start_total = std::chrono::high_resolution_clock::now();
+    // Initialize CUDA and metrics
+    InitCUDA();
+    KernelMetrics metrics;
+    metrics.size_kb = N * sizeof(float) / 1024.0;
 
-        std::cout << "[Running] Executing benchmark iterations..." << std::endl;
-        CUDAEventTimer timer;
+    // Allocate memory
+    float* h_data = nullptr;
 
-        for (auto _ : state) {
-            timer.Start();
-            CUDA_CHECK(cudaMallocHost(&h_data, N * sizeof(float)));
-            CUDA_CHECK(cudaFreeHost(h_data));
-            timer.Stop();
+    // Benchmark iterations
+    std::cout << "[Running] Executing benchmark iterations..." << std::endl;
+    CUDAEventTimer timer;
 
-            metrics.kernel_time = timer.ElapsedMillis();
-            metrics.bandwidth = (N * sizeof(float)) / (metrics.kernel_time * 1e-3) / 1e9;
+    for (auto _ : state) {
+        timer.Start();
+        CUDA_CHECK(cudaMallocHost(&h_data, N * sizeof(float)));
+        CUDA_CHECK(cudaFreeHost(h_data));
+        timer.Stop();
 
-            state.SetIterationTime(metrics.kernel_time / 1000.0);
-            state.counters["KernelTime_ms"] = metrics.kernel_time;
-            state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
-            state.counters["GFLOPS"] = metrics.gflops;
-            state.counters["Size_KB"] = metrics.size_kb;
-        }
+        metrics.kernel_time = timer.ElapsedMillis();
+        metrics.bandwidth = (metrics.size_kb * 1024) / (metrics.kernel_time * 1e-3) / 1e9;
 
-        auto end_total = std::chrono::high_resolution_clock::now();
-        metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
-        state.counters["TotalTime_ms"] = metrics.total_time;
-
-        CleanupCUDA();
-        std::cout << "[Completed] CudaMallocHost benchmark" << std::endl;
-    } catch (const std::exception& e) {
-        state.SkipWithError(e.what());
+        state.SetIterationTime(metrics.kernel_time / 1000.0);
+        state.counters["KernelTime_ms"] = metrics.kernel_time;
+        state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
+        state.counters["GFLOPS"] = metrics.gflops;
+        state.counters["Size_KB"] = metrics.size_kb;
     }
+
+    auto end_total = std::chrono::high_resolution_clock::now();
+    metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
+    state.counters["TotalTime_ms"] = metrics.total_time;
+
+    // Cleanup
+    CleanupCUDA();
+    std::cout << "[Completed] CudaMallocHost benchmark" << std::endl;
 }
 
 // Device memory allocation performance test
 static void BM_CudaMalloc(benchmark::State& state) {
-    try {
-        const int N = state.range(0);
-        std::cout << "\n[Starting] CudaMalloc benchmark [size: " << N << "]" << std::endl;
+    auto start_total = std::chrono::high_resolution_clock::now();
 
-        InitCUDA();
-        KernelMetrics metrics;
-        metrics.size_kb = N * sizeof(float) / 1024.0;
+    const int N = state.range(0);
+    std::cout << "\n[Starting] CudaMalloc benchmark [size: " << N << "]" << std::endl;
 
-        float* d_data = nullptr;
-        auto start_total = std::chrono::high_resolution_clock::now();
+    // Initialize CUDA and metrics
+    InitCUDA();
+    KernelMetrics metrics;
+    metrics.size_kb = N * sizeof(float) / 1024.0;
 
-        std::cout << "[Running] Executing benchmark iterations..." << std::endl;
-        CUDAEventTimer timer;
+    // Allocate memory
+    float* d_data = nullptr;
 
-        for (auto _ : state) {
-            timer.Start();
-            CUDA_CHECK(cudaMalloc(&d_data, N * sizeof(float)));
-            CUDA_CHECK(cudaFree(d_data));
-            timer.Stop();
+    // Benchmark iterations
+    std::cout << "[Running] Executing benchmark iterations..." << std::endl;
+    CUDAEventTimer timer;
 
-            metrics.kernel_time = timer.ElapsedMillis();
-            metrics.bandwidth = (N * sizeof(float)) / (metrics.kernel_time * 1e-3) / 1e9;
+    for (auto _ : state) {
+        timer.Start();
+        CUDA_CHECK(cudaMalloc(&d_data, N * sizeof(float)));
+        CUDA_CHECK(cudaFree(d_data));
+        timer.Stop();
 
-            state.SetIterationTime(metrics.kernel_time / 1000.0);
-            state.counters["KernelTime_ms"] = metrics.kernel_time;
-            state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
-            state.counters["GFLOPS"] = metrics.gflops;
-            state.counters["Size_KB"] = metrics.size_kb;
-        }
+        metrics.kernel_time = timer.ElapsedMillis();
+        metrics.bandwidth = (metrics.size_kb * 1024) / (metrics.kernel_time * 1e-3) / 1e9;
 
-        auto end_total = std::chrono::high_resolution_clock::now();
-        metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
-        state.counters["TotalTime_ms"] = metrics.total_time;
-
-        CleanupCUDA();
-        std::cout << "[Completed] CudaMalloc benchmark" << std::endl;
-    } catch (const std::exception& e) {
-        state.SkipWithError(e.what());
+        state.SetIterationTime(metrics.kernel_time / 1000.0);
+        state.counters["KernelTime_ms"] = metrics.kernel_time;
+        state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
+        state.counters["GFLOPS"] = metrics.gflops;
+        state.counters["Size_KB"] = metrics.size_kb;
     }
+
+    auto end_total = std::chrono::high_resolution_clock::now();
+    metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
+    state.counters["TotalTime_ms"] = metrics.total_time;
+
+    // Cleanup
+    CleanupCUDA();
+    std::cout << "[Completed] CudaMalloc benchmark" << std::endl;
 }
 
 // Memory copy performance tests
 static void BM_CudaMemcpy(benchmark::State& state, cudaMemcpyKind kind) {
-    try {
-        const int N = state.range(0);
-        const char* kindStr = (kind == cudaMemcpyDeviceToHost) ? "D2H" : "H2D";
-        std::cout << "\n[Starting] CudaMemcpy" << kindStr << " benchmark [size: " << N << "]" << std::endl;
+    auto start_total = std::chrono::high_resolution_clock::now();
 
-        InitCUDA();
-        KernelMetrics metrics;
-        metrics.size_kb = N * sizeof(float) / 1024.0;
+    const int N = state.range(0);
+    const char* kindStr = (kind == cudaMemcpyDeviceToHost) ? "D2H" : "H2D";
+    std::cout << "\n[Starting] CudaMemcpy" << kindStr << " benchmark [size: " << N << "]"
+              << std::endl;
 
-        float *h_data = nullptr, *d_data = nullptr;
-        CUDA_CHECK(cudaMallocHost(&h_data, N * sizeof(float)));
-        CUDA_CHECK(cudaMalloc(&d_data, N * sizeof(float)));
+    // Initialize CUDA and metrics
+    InitCUDA();
+    KernelMetrics metrics;
+    metrics.size_kb = N * sizeof(float) / 1024.0;
 
-        auto start_total = std::chrono::high_resolution_clock::now();
-        std::cout << "[Running] Executing benchmark iterations..." << std::endl;
-        CUDAEventTimer timer;
+    // Allocate memory
+    float *h_data = nullptr, *d_data = nullptr;
+    CUDA_CHECK(cudaMallocHost(&h_data, N * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_data, N * sizeof(float)));
 
-        for (auto _ : state) {
-            timer.Start();
-            CUDA_CHECK(cudaMemcpy(
-                (kind == cudaMemcpyDeviceToHost) ? h_data : d_data,
-                (kind == cudaMemcpyDeviceToHost) ? d_data : h_data,
-                N * sizeof(float),
-                kind));
-            timer.Stop();
+    // Benchmark iterations
+    std::cout << "[Running] Executing benchmark iterations..." << std::endl;
+    CUDAEventTimer timer;
 
-            metrics.kernel_time = timer.ElapsedMillis();
-            metrics.bandwidth = (N * sizeof(float)) / (metrics.kernel_time * 1e-3) / 1e9;
+    for (auto _ : state) {
+        timer.Start();
+        CUDA_CHECK(cudaMemcpy((kind == cudaMemcpyDeviceToHost) ? h_data : d_data,
+                              (kind == cudaMemcpyDeviceToHost) ? d_data : h_data, N * sizeof(float),
+                              kind));
+        timer.Stop();
 
-            state.SetIterationTime(metrics.kernel_time / 1000.0);
-            state.counters["KernelTime_ms"] = metrics.kernel_time;
-            state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
-            state.counters["GFLOPS"] = metrics.gflops;
-            state.counters["Size_KB"] = metrics.size_kb;
-        }
+        metrics.kernel_time = timer.ElapsedMillis();
+        metrics.bandwidth = (metrics.size_kb * 1024) / (metrics.kernel_time * 1e-3) / 1e9;
 
-        auto end_total = std::chrono::high_resolution_clock::now();
-        metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
-        state.counters["TotalTime_ms"] = metrics.total_time;
-
-        CUDA_CHECK(cudaFreeHost(h_data));
-        CUDA_CHECK(cudaFree(d_data));
-
-        CleanupCUDA();
-        std::cout << "[Completed] CudaMemcpy" << kindStr << " benchmark" << std::endl;
-    } catch (const std::exception& e) {
-        state.SkipWithError(e.what());
+        state.SetIterationTime(metrics.kernel_time / 1000.0);
+        state.counters["KernelTime_ms"] = metrics.kernel_time;
+        state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
+        state.counters["GFLOPS"] = metrics.gflops;
+        state.counters["Size_KB"] = metrics.size_kb;
     }
+
+    auto end_total = std::chrono::high_resolution_clock::now();
+    metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
+    state.counters["TotalTime_ms"] = metrics.total_time;
+
+    // Cleanup
+    CUDA_CHECK(cudaFreeHost(h_data));
+    CUDA_CHECK(cudaFree(d_data));
+    CleanupCUDA();
+    std::cout << "[Completed] CudaMemcpy" << kindStr << " benchmark" << std::endl;
 }
 
 static void BM_CudaMemcpyD2H(benchmark::State& state) {

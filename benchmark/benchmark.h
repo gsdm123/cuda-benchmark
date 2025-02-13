@@ -3,17 +3,25 @@
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
 #include <iostream>
-#include <string>
 #include <stdexcept>
+#include <string>
 
 // CUDA error checking macro
-#define CUDA_CHECK(call)                                                      \
-    do {                                                                      \
-        cudaError_t error = call;                                             \
-        if (error != cudaSuccess) {                                           \
-            throw std::runtime_error(std::string("CUDA error: ") + \
-                                   cudaGetErrorString(error)); \
-        }                                                                     \
+#define CUDA_CHECK(call)                                                                       \
+    do {                                                                                       \
+        cudaError_t error = call;                                                              \
+        if (error != cudaSuccess) {                                                            \
+            throw std::runtime_error(std::string("CUDA error: ") + cudaGetErrorString(error)); \
+        }                                                                                      \
+    } while (0)
+
+// Get last error
+#define GET_LAST_ERROR()                                                                       \
+    do {                                                                                       \
+        cudaError_t error = cudaGetLastError();                                                \
+        if (error != cudaSuccess) {                                                            \
+            throw std::runtime_error(std::string("CUDA error: ") + cudaGetErrorString(error)); \
+        }                                                                                      \
     } while (0)
 
 // CUDA initialization and cleanup functions
@@ -45,8 +53,10 @@ public:
     }
 
     ~CUDAEventTimer() noexcept {
-        if (start_) cudaEventDestroy(start_);
-        if (stop_) cudaEventDestroy(stop_);
+        if (start_)
+            cudaEventDestroy(start_);
+        if (stop_)
+            cudaEventDestroy(stop_);
     }
 
     void Start() {
@@ -72,13 +82,38 @@ private:
     cudaEvent_t stop_{nullptr};
 };
 
+template <typename T>
+class Verify {
+public:
+    Verify(const T* gpu_output, const T* cpu_output, int size)
+        : gpu_output(gpu_output), cpu_output(cpu_output), size(size) {}
+
+    bool VerifyResults(T tolerance = static_cast<T>(1e-5)) {
+        for (int i = 0; i < size; i++) {
+            T diff = std::abs(gpu_output[i] - cpu_output[i]);
+            if (diff > tolerance) {
+                printf("Verification failed at index %d: GPU = %f, CPU = %f, diff = %f\n", i,
+                       static_cast<float>(gpu_output[i]), static_cast<float>(cpu_output[i]),
+                       static_cast<float>(diff));
+                return false;
+            }
+        }
+        return true;
+    }
+
+private:
+    const T* gpu_output;
+    const T* cpu_output;
+    int size;
+};
+
 // Performance metrics struct
 struct KernelMetrics {
-    double kernel_time = 0.0;    // kernel execution time in ms
-    double bandwidth = 0.0;      // memory bandwidth in GB/s
-    double gflops = 0.0;        // compute throughput in GFLOPS
-    double size_kb = 0.0;       // data size in KB
-    double total_time = 0.0;    // total execution time in ms
+    double kernel_time = 0.0;  // kernel execution time in ms
+    double bandwidth = 0.0;    // memory bandwidth in GB/s
+    double gflops = 0.0;       // compute throughput in GFLOPS
+    double size_kb = 0.0;      // data size in KB
+    double total_time = 0.0;   // total execution time in ms
 };
 
 // Version information structure

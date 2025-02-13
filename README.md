@@ -35,16 +35,28 @@
 
 ```
 
-### 运行
+### 安装 python 依赖库
+```bash
+python3 -m pip install -r requirements.txt
+```
+### 运行测试
 
 ```bash
-# 可能需要修改 CUDA Toolkit 版本
 ./scripts/build.sh
+# 指定 cuda toolkit 版本，默认为 12.6
+./scripts/build.sh 12.6
+# 性能测试时，不会对结果进行验证，如果需要验证，请修改 build.sh 里面的 "cmake .." 为 "cmake .. -DENABLE_VERIFICATION=ON", 该选项默认为关闭状态
 ```
 
 ## 输出说明
 
-每个测试用例都会输出详细的执行信息，包括：
+测试完成会生成 result目录，里面包含所有测试的详细结果
+- summary.md 所有测试的汇总结果
+- report.md 所有测试的详细结果
+- report.html 所有测试的详细结果的可视化图表
+- benchmark_result.json 所有测试的详细结果的 json 格式
+
+每个测试用例在运行过程中都会打印详细的执行信息，包括：
 - 测试开始和结束提示
 - 详细的性能指标
 - 如果出现错误，会显示具体的错误信息

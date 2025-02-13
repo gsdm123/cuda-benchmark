@@ -155,13 +155,14 @@
 - `basic_benchmark.cu`: 基础性能测试
 - `runtime_benchmark.cu`: CUDA Runtime API 性能测试
 - `memory_benchmark.cu`: 内存操作性能测试
-- `kernel_benchmark.cu`: CUDA 内核性能测试
 - `stream_benchmark.cu`: CUDA 流性能测试
 - `unified_memory_benchmark.cu`: 统一内存性能测试
 - `advanced_benchmark.cu`: 高级特性性能测试
 - `error_benchmark.cu`: 错误处理性能测试
 - `interaction_benchmark.cu`: 主机设备交互测试
 - `config_benchmark.cu`: 环境配置性能测试
+- `mm_benchmark.cu`: 矩阵乘法性能测试
+- `conv_benchmark.cu`: 卷积性能测试
 
 ## 测试用例说明
 
@@ -224,6 +225,9 @@ BENCHMARK(BM_NewTest)
 ```bash
 # 运行所有测试
 ./run_benchmark
+
+# 显示所有测试
+./run_benchmark --benchmark_list_tests
 
 # 运行特定测试
 ./run_benchmark --benchmark_filter=BM_CudaMemcpy

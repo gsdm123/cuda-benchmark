@@ -1,18 +1,26 @@
 # set CUDA architecture
 set(CMAKE_CUDA_ARCHITECTURES 80)
 
+# add verification option
+option(ENABLE_VERIFICATION "Enable result verification in benchmarks" OFF)
+
+if(ENABLE_VERIFICATION)
+    add_compile_definitions(ENABLE_VERIFICATION)
+endif()
+
 # add benchmark executable
 add_executable(run_benchmark
     basic_benchmark.cu
     runtime_benchmark.cu
     memory_benchmark.cu
-    kernel_benchmark.cu
     stream_benchmark.cu
     unified_memory_benchmark.cu
     advanced_benchmark.cu
     error_benchmark.cu
     interaction_benchmark.cu
     config_benchmark.cu
+    mma_benchmark.cu
+    conv_benchmark.cu
 )
 
 # link Google Benchmark

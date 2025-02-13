@@ -8,44 +8,45 @@
 
 // Unified memory allocation and free performance test
 static void BM_UnifiedMemoryAllocFree(benchmark::State& state) {
-    try {
-        const int N = state.range(0);
-        std::cout << "\n[Starting] Unified Memory Alloc/Free benchmark [size: " << N << "]" << std::endl;
+    auto start_total = std::chrono::high_resolution_clock::now();
 
-        InitCUDA();
-        KernelMetrics metrics;
-        metrics.size_kb = N * sizeof(float) / 1024.0;
+    const int N = state.range(0);
+    std::cout << "\n[Starting] Unified Memory Alloc/Free benchmark [size: " << N << "]"
+              << std::endl;
 
-        auto start_total = std::chrono::high_resolution_clock::now();
-        CUDAEventTimer timer;
+    // Initialize CUDA and metrics
+    InitCUDA();
+    KernelMetrics metrics;
+    metrics.size_kb = N * sizeof(float) / 1024.0;
 
-        std::cout << "[Running] Executing benchmark iterations..." << std::endl;
-        for (auto _ : state) {
-            float* ptr = nullptr;
-            timer.Start();
-            CUDA_CHECK(cudaMallocManaged(&ptr, N * sizeof(float)));
-            CUDA_CHECK(cudaFree(ptr));
-            timer.Stop();
+    // Benchmark iterations
+    std::cout << "[Running] Executing benchmark iterations..." << std::endl;
+    CUDAEventTimer timer;
 
-            metrics.kernel_time = timer.ElapsedMillis();
-            metrics.bandwidth = (N * sizeof(float)) / (metrics.kernel_time * 1e-3) / 1e9;
+    for (auto _ : state) {
+        float* ptr = nullptr;
+        timer.Start();
+        CUDA_CHECK(cudaMallocManaged(&ptr, N * sizeof(float)));
+        CUDA_CHECK(cudaFree(ptr));
+        timer.Stop();
 
-            state.SetIterationTime(metrics.kernel_time / 1000.0);
-            state.counters["KernelTime_ms"] = metrics.kernel_time;
-            state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
-            state.counters["GFLOPS"] = metrics.gflops;
-            state.counters["Size_KB"] = metrics.size_kb;
-        }
+        metrics.kernel_time = timer.ElapsedMillis();
+        metrics.bandwidth = (metrics.size_kb * 1024) / (metrics.kernel_time * 1e-3) / 1e9;
 
-        auto end_total = std::chrono::high_resolution_clock::now();
-        metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
-        state.counters["TotalTime_ms"] = metrics.total_time;
-
-        CleanupCUDA();
-        std::cout << "[Completed] Unified Memory Alloc/Free benchmark" << std::endl;
-    } catch (const std::exception& e) {
-        state.SkipWithError(e.what());
+        state.SetIterationTime(metrics.kernel_time / 1000.0);
+        state.counters["KernelTime_ms"] = metrics.kernel_time;
+        state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
+        state.counters["GFLOPS"] = metrics.gflops;
+        state.counters["Size_KB"] = metrics.size_kb;
     }
+
+    auto end_total = std::chrono::high_resolution_clock::now();
+    metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
+    state.counters["TotalTime_ms"] = metrics.total_time;
+
+    // Cleanup
+    CleanupCUDA();
+    std::cout << "[Completed] Unified Memory Alloc/Free benchmark" << std::endl;
 }
 
 // Unified memory access kernel
@@ -58,123 +59,112 @@ __global__ void accessUnifiedMemory(float* data, int n) {
 
 // Unified memory access performance test
 static void BM_UnifiedMemoryAccess(benchmark::State& state) {
-    try {
-        const int N = state.range(0);
-        std::cout << "\n[Starting] Unified Memory Access benchmark [size: " << N << "]" << std::endl;
+    auto start_total = std::chrono::high_resolution_clock::now();
 
-        InitCUDA();
-        KernelMetrics metrics;
-        metrics.size_kb = N * sizeof(float) / 1024.0;
+    const int N = state.range(0);
+    std::cout << "\n[Starting] Unified Memory Access benchmark [size: " << N << "]" << std::endl;
 
-        float* data = nullptr;
-        auto start_total = std::chrono::high_resolution_clock::now();
+    // Initialize CUDA and metrics
+    InitCUDA();
+    KernelMetrics metrics;
+    metrics.size_kb = N * sizeof(float) / 1024.0;
 
-        try {
-            // Allocate and initialize unified memory
-            CUDA_CHECK(cudaMallocManaged(&data, N * sizeof(float)));
-            std::fill_n(data, N, 1.0f);
+    float* data = nullptr;
 
-            CUDA_CHECK(cudaDeviceSynchronize());
+    // Allocate and initialize unified memory
+    CUDA_CHECK(cudaMallocManaged(&data, N * sizeof(float)));
+    std::fill_n(data, N, 1.0f);
 
-            // Configure kernel
-            int blockSize = 256;
-            int numBlocks = (N + blockSize - 1) / blockSize;
+    // Synchronize device
+    CUDA_CHECK(cudaDeviceSynchronize());
 
-            // Warm up
-            std::cout << "[Warmup] Running warmup iteration..." << std::endl;
-            accessUnifiedMemory<<<numBlocks, blockSize>>>(data, N);
-            CUDA_CHECK(cudaDeviceSynchronize());
+    // Configure kernel
+    int blockSize = 256;
+    int numBlocks = (N + blockSize - 1) / blockSize;
 
-            // Benchmark iterations
-            std::cout << "[Running] Executing benchmark iterations..." << std::endl;
-            CUDAEventTimer timer;
+    // Warm up
+    std::cout << "[Warmup] Running warmup iteration..." << std::endl;
+    accessUnifiedMemory<<<numBlocks, blockSize>>>(data, N);
+    CUDA_CHECK(cudaDeviceSynchronize());
 
-            for (auto _ : state) {
-                timer.Start();
-                accessUnifiedMemory<<<numBlocks, blockSize>>>(data, N);
-                timer.Stop();
+    // Benchmark iterations
+    std::cout << "[Running] Executing benchmark iterations..." << std::endl;
+    CUDAEventTimer timer;
 
-                metrics.kernel_time = timer.ElapsedMillis();
-                metrics.bandwidth = (2.0 * N * sizeof(float)) / (metrics.kernel_time * 1e-3) / 1e9;
-                metrics.gflops = (N * 1.0) / (metrics.kernel_time * 1e-3) / 1e9;
+    for (auto _ : state) {
+        timer.Start();
+        accessUnifiedMemory<<<numBlocks, blockSize>>>(data, N);
+        timer.Stop();
 
-                state.SetIterationTime(metrics.kernel_time / 1000.0);
-                state.counters["KernelTime_ms"] = metrics.kernel_time;
-                state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
-                state.counters["GFLOPS"] = metrics.gflops;
-                state.counters["Size_KB"] = metrics.size_kb;
-            }
-            CUDA_CHECK(cudaFree(data));
-        } catch (...) {
-            if (data) cudaFree(data);
-            throw;
-        }
+        metrics.kernel_time = timer.ElapsedMillis();
+        metrics.bandwidth = (2.0 * metrics.size_kb * 1024) / (metrics.kernel_time * 1e-3) / 1e9;
+        metrics.gflops = (1.0 * N) / (metrics.kernel_time * 1e-3) / 1e9;
 
-        auto end_total = std::chrono::high_resolution_clock::now();
-        metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
-        state.counters["TotalTime_ms"] = metrics.total_time;
-
-        CleanupCUDA();
-        std::cout << "[Completed] Unified Memory Access benchmark" << std::endl;
-    } catch (const std::exception& e) {
-        state.SkipWithError(e.what());
+        state.SetIterationTime(metrics.kernel_time / 1000.0);
+        state.counters["KernelTime_ms"] = metrics.kernel_time;
+        state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
+        state.counters["GFLOPS"] = metrics.gflops;
+        state.counters["Size_KB"] = metrics.size_kb;
     }
+
+    auto end_total = std::chrono::high_resolution_clock::now();
+    metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
+    state.counters["TotalTime_ms"] = metrics.total_time;
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(data));
+    CleanupCUDA();
+    std::cout << "[Completed] Unified Memory Access benchmark" << std::endl;
 }
 
 // Page migration performance test
 static void BM_UnifiedMemoryMigration(benchmark::State& state) {
-    try {
-        const int N = state.range(0);
-        std::cout << "\n[Starting] Unified Memory Migration benchmark [size: " << N << "]" << std::endl;
+    auto start_total = std::chrono::high_resolution_clock::now();
 
-        InitCUDA();
-        KernelMetrics metrics;
-        metrics.size_kb = N * sizeof(float) / 1024.0;
+    const int N = state.range(0);
+    std::cout << "\n[Starting] Unified Memory Migration benchmark [size: " << N << "]" << std::endl;
 
-        float* data = nullptr;
-        auto start_total = std::chrono::high_resolution_clock::now();
+    // Initialize CUDA and metrics
+    InitCUDA();
+    KernelMetrics metrics;
+    metrics.size_kb = N * sizeof(float) / 1024.0;
 
-        try {
-            CUDA_CHECK(cudaMallocManaged(&data, N * sizeof(float)));
-            std::fill_n(data, N, 1.0f);
+    float* data = nullptr;
 
-            std::cout << "[Running] Executing benchmark iterations..." << std::endl;
-            CUDAEventTimer timer;
+    CUDA_CHECK(cudaMallocManaged(&data, N * sizeof(float)));
+    std::fill_n(data, N, 1.0f);
 
-            for (auto _ : state) {
-                timer.Start();
-                // Migrate to GPU
-                CUDA_CHECK(cudaMemPrefetchAsync(data, N * sizeof(float), 0));
-                CUDA_CHECK(cudaDeviceSynchronize());
-                // Migrate to CPU
-                CUDA_CHECK(cudaMemPrefetchAsync(data, N * sizeof(float), cudaCpuDeviceId));
-                CUDA_CHECK(cudaDeviceSynchronize());
-                timer.Stop();
+    std::cout << "[Running] Executing benchmark iterations..." << std::endl;
+    CUDAEventTimer timer;
 
-                metrics.kernel_time = timer.ElapsedMillis();
-                metrics.bandwidth = (2.0 * N * sizeof(float)) / (metrics.kernel_time * 1e-3) / 1e9;
+    for (auto _ : state) {
+        timer.Start();
+        // Migrate to GPU
+        CUDA_CHECK(cudaMemPrefetchAsync(data, N * sizeof(float), 0));
+        CUDA_CHECK(cudaDeviceSynchronize());
+        // Migrate to CPU
+        CUDA_CHECK(cudaMemPrefetchAsync(data, N * sizeof(float), cudaCpuDeviceId));
+        CUDA_CHECK(cudaDeviceSynchronize());
+        timer.Stop();
 
-                state.SetIterationTime(metrics.kernel_time / 1000.0);
-                state.counters["KernelTime_ms"] = metrics.kernel_time;
-                state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
-                state.counters["GFLOPS"] = metrics.gflops;
-                state.counters["Size_KB"] = metrics.size_kb;
-            }
-            CUDA_CHECK(cudaFree(data));
-        } catch (...) {
-            if (data) cudaFree(data);
-            throw;
-        }
+        metrics.kernel_time = timer.ElapsedMillis();
+        metrics.bandwidth = (2.0 * metrics.size_kb * 1024) / (metrics.kernel_time * 1e-3) / 1e9;
 
-        auto end_total = std::chrono::high_resolution_clock::now();
-        metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
-        state.counters["TotalTime_ms"] = metrics.total_time;
-
-        CleanupCUDA();
-        std::cout << "[Completed] Unified Memory Migration benchmark" << std::endl;
-    } catch (const std::exception& e) {
-        state.SkipWithError(e.what());
+        state.SetIterationTime(metrics.kernel_time / 1000.0);
+        state.counters["KernelTime_ms"] = metrics.kernel_time;
+        state.counters["Bandwidth_GB/s"] = metrics.bandwidth;
+        state.counters["GFLOPS"] = metrics.gflops;
+        state.counters["Size_KB"] = metrics.size_kb;
     }
+
+    auto end_total = std::chrono::high_resolution_clock::now();
+    metrics.total_time = std::chrono::duration<double, std::milli>(end_total - start_total).count();
+    state.counters["TotalTime_ms"] = metrics.total_time;
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(data));
+    CleanupCUDA();
+    std::cout << "[Completed] Unified Memory Migration benchmark" << std::endl;
 }
 
 // Register unified memory allocation and free benchmark
@@ -193,10 +183,10 @@ BENCHMARK(BM_UnifiedMemoryAccess)
     ->Unit(benchmark::kMicrosecond)
     ->Repetitions(2);
 
-// Register unified memory migration benchmark
-BENCHMARK(BM_UnifiedMemoryMigration)
-    ->RangeMultiplier(2)
-    ->Range(1 << 8, 1 << 10)
-    ->UseManualTime()
-    ->Unit(benchmark::kMicrosecond)
-    ->Repetitions(2);
+// // Register unified memory migration benchmark
+// BENCHMARK(BM_UnifiedMemoryMigration)
+//     ->RangeMultiplier(2)
+//     ->Range(1 << 8, 1 << 10)
+//     ->UseManualTime()
+//     ->Unit(benchmark::kMicrosecond)
+//     ->Repetitions(2);
