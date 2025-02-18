@@ -12,6 +12,9 @@
 - **Size_KB**: 数据大小（KB）
 - **TotalTime**: 总执行时间（毫秒）
 
+该项目无法获取编译时间、可知文件大小、ELF 文件大小等编译器的性能参数。Kernel 函数执行时间并不是通过 nvprof 工具获取的，而是通过 CUDAEventTimer 获取的，所以存在一定的误差。
+建议该项目与 llvm-test-suite 项目一起使用，在 llvm-test-suite 项目中，我实现了获取编译时间、可知文件大小、ELF 文件大小等编译器的性能参数，同时使用 nvprof 工具获取 Kernel 函数执行时间，获取的执行时间更加准确。两个项目的不同点是，这个项目会把所有源文件链接到一个可执行文件，而 llvm-test-suite 项目会为每个源文件生成一个可执行文件。另一个项目还在开发中，暂时无法使用。
+
 ## 测试用例说明
 
 ### 运行时测试 (runtime_benchmark.cu)
@@ -50,7 +53,7 @@ python3 -m pip install -r requirements.txt
 
 ## 输出说明
 
-测试完成会生成 result目录，里面包含所有测试的详细结果
+测试完成会生成 result目录，里面包含所有测试的详细结果:
 - summary.md 所有测试的汇总结果
 - report.md 所有测试的详细结果
 - report.html 所有测试的详细结果的可视化图表
@@ -60,6 +63,15 @@ python3 -m pip install -r requirements.txt
 - 测试开始和结束提示
 - 详细的性能指标
 - 如果出现错误，会显示具体的错误信息
+
+在 result 目录下，会生成三个文件夹，分别对应 O0, O1, O2 的测试结果:
+- O0_${TIMESTAMP}
+- O1_${TIMESTAMP}
+- O2_${TIMESTAMP}
+
+在 result 目录下，会生成 O0 VS O1 和 O0 VS O2 的报告文件，报告文件的格式为 html 格式，内容包括：
+- 所有测试的详细结果
+- 目前仅展示 kernel time 和 total time 的对比
 
 ## 注意事项
 
@@ -73,6 +85,7 @@ python3 -m pip install -r requirements.txt
 - 支持多种 CUDA 功能的性能测试
 - 自动生成性能报告和可视化图表
 - 支持 JSON/CSV 格式的测试结果输出
+- 由于所有源文件最后会打包成一个可执行文件，所有准确得到编译时间，关于编译时间这类的性能指标，可以参考另一个项目
 
 ## 测试内容
 

@@ -7,13 +7,16 @@ import sys
 import json
 import os
 from datetime import datetime
+import argparse
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-def create_html_report(benchmarks, output_dir, total_time_ms):
+def create_html_report(benchmarks, output_dir, total_time_ms, suffix=""):
     """Create HTML format report"""
     html_content = f"""
     <html>
     <head>
-        <title>CUDA Benchmark Report</title>
+        <title>CUDA Benchmark Report{suffix}</title>
         <style>
             body {{ font-family: Arial, sans-serif; margin: 40px; }}
             .benchmark {{ margin: 20px 0; padding: 20px; border: 1px solid #ddd; }}
@@ -26,7 +29,7 @@ def create_html_report(benchmarks, output_dir, total_time_ms):
         </style>
     </head>
     <body>
-        <h1>CUDA Benchmark Performance Report</h1>
+        <h1>CUDA Benchmark Performance Report{suffix}</h1>
         <p class="timestamp">Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
 
         <div class="total-time">
@@ -35,8 +38,8 @@ def create_html_report(benchmarks, output_dir, total_time_ms):
 
         <div class="plot">
             <h2>Performance Overview</h2>
-            <img src="kernel_time_plot.svg" alt="Kernel Time Plot" style="max-width: 100%;">
-            <img src="bandwidth_plot.svg" alt="Bandwidth Plot" style="max-width: 100%;">
+            <img src="kernel_time_plot{suffix}.svg" alt="Kernel Time Plot" style="max-width: 100%;">
+            <img src="bandwidth_plot{suffix}.svg" alt="Bandwidth Plot" style="max-width: 100%;">
         </div>
 
         <h2>Detailed Results</h2>
@@ -89,12 +92,12 @@ def create_html_report(benchmarks, output_dir, total_time_ms):
     </html>
     """
 
-    with open(f"{output_dir}/report.html", 'w') as f:
+    with open(f"{output_dir}/report{suffix}.html", 'w') as f:
         f.write(html_content)
 
 import plotly.express as px
 
-def create_performance_plot(benchmarks, output_dir):
+def create_performance_plot(benchmarks, output_dir, suffix=""):
     """Create performance visualization"""
     df = pd.DataFrame(benchmarks)
 
@@ -113,10 +116,10 @@ def create_performance_plot(benchmarks, output_dir):
     fig2.update_layout(xaxis_tickangle=-45, width=800, height=400)
 
     # Save the figures
-    fig1.write_image(f"{output_dir}/kernel_time_plot.svg")
-    fig2.write_image(f"{output_dir}/bandwidth_plot.svg")
+    fig1.write_image(f"{output_dir}/kernel_time_plot{suffix}.svg")
+    fig2.write_image(f"{output_dir}/bandwidth_plot{suffix}.svg")
 
-def process_benchmark_results(json_file):
+def process_benchmark_results(json_file, suffix=""):
     """Process benchmark results and generate reports."""
     output_dir = os.path.dirname(json_file)
 
@@ -136,10 +139,10 @@ def process_benchmark_results(json_file):
             processed_benchmarks.append(benchmark)
 
     # Create performance plot
-    create_performance_plot(processed_benchmarks, output_dir)
+    create_performance_plot(processed_benchmarks, output_dir, suffix)
 
     # Generate HTML report
-    create_html_report(processed_benchmarks, output_dir, total_time)
+    create_html_report(processed_benchmarks, output_dir, total_time, suffix)
 
     # Create Markdown report
     report = []
@@ -204,9 +207,73 @@ def process_benchmark_results(json_file):
     with open(f"{output_dir}/report.md", 'w') as f:
         f.write('\n'.join(report))
 
-if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print("Usage: python process_benchmark.py <benchmark_results.json>")
+def load_benchmark_data(json_file):
+    with open(json_file, 'r') as f:
+        data = json.load(f)
+    return data
+
+def create_visualization(df, output_dir, suffix=""):
+    # Create subplots
+    fig = make_subplots(rows=3, cols=1,
+                        subplot_titles=('Kernel Time (ms)', 'Bandwidth (GB/s)', 'GFLOPS'),
+                        vertical_spacing=0.1)
+
+    # Add traces for each metric
+    fig.add_trace(go.Bar(name='Kernel Time', x=df['name'], y=df['KernelTime_ms']), row=1, col=1)
+    fig.add_trace(go.Bar(name='Bandwidth', x=df['name'], y=df['Bandwidth_GB/s']), row=2, col=1)
+    fig.add_trace(go.Bar(name='GFLOPS', x=df['name'], y=df['GFLOPS']), row=3, col=1)
+
+    # Update layout
+    fig.update_layout(
+        title=f'CUDA Benchmark Performance{suffix}',
+        height=1200,
+        showlegend=False
+    )
+
+    # Save plot
+    fig.write_html(os.path.join(output_dir, f'report{suffix}.html'))
+    fig.write_image(os.path.join(output_dir, f'benchmark_plot{suffix}.png'))
+
+def generate_markdown_report(df, total_time, output_dir, suffix=""):
+    report = f"""# CUDA Benchmark Report{suffix}
+
+## Summary
+- Total Execution Time: {total_time:.2f} ms
+- Number of Benchmarks: {len(df)}
+
+## Performance Results
+
+### Kernel Time (ms)
+```
+{df[['name', 'KernelTime_ms']].to_markdown(index=False)}
+```
+
+### Bandwidth (GB/s)
+```
+{df[['name', 'Bandwidth_GB/s']].to_markdown(index=False)}
+```
+
+### GFLOPS
+```
+{df[['name', 'GFLOPS']].to_markdown(index=False)}
+```
+
+### Data Size (KB)
+```
+{df[['name', 'Size_KB']].to_markdown(index=False)}
+```
+"""
+
+    with open(os.path.join(output_dir, f'report{suffix}.md'), 'w') as f:
+        f.write(report)
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python process_benchmark.py <benchmark_results.json> [suffix]")
         sys.exit(1)
 
-    process_benchmark_results(sys.argv[1])
+    suffix = f"_{sys.argv[2]}" if len(sys.argv) > 2 else ""
+    process_benchmark_results(sys.argv[1], suffix)
+
+if __name__ == '__main__':
+    main()
