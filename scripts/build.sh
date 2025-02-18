@@ -23,7 +23,7 @@ setup_cuda_env() {
 }
 
 # Parse command line arguments
-CUDA_VERSION=${1:-"12.6"}  # Default to CUDA 12.6 if not specified
+CUDA_VERSION=${1:-"12.8"}  # Default to CUDA 12.8 if not specified
 
 # Setup CUDA environment
 if ! setup_cuda_env "$CUDA_VERSION"; then
