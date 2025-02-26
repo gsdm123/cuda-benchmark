@@ -33,7 +33,7 @@ def create_html_report(benchmarks, output_dir, total_time_ms, suffix=""):
         <p class="timestamp">Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
 
         <div class="total-time">
-            <h2>Total Test Time: {total_time_ms:.2f} ms</h2>
+            <h2>Total Test Time: {total_time_ms:.6f} ms</h2>
         </div>
 
         <div class="plot">
@@ -69,10 +69,10 @@ def create_html_report(benchmarks, output_dir, total_time_ms, suffix=""):
                     <strong>Kernel Time:</strong> {kernel_time:.3f} ms
                 </div>
                 <div class="metric">
-                    <strong>Memory Bandwidth:</strong> {bandwidth:.2f} GB/s
+                    <strong>Memory Bandwidth:</strong> {bandwidth:.6f} GB/s
                 </div>
                 <div class="metric">
-                    <strong>Compute Throughput:</strong> {gflops:.2f} GFLOPS
+                    <strong>Compute Throughput:</strong> {gflops:.6f} GFLOPS
                 </div>
                 <div class="metric">
                     <strong>Single Run Time:</strong> {time:.3f} us
@@ -81,7 +81,7 @@ def create_html_report(benchmarks, output_dir, total_time_ms, suffix=""):
                     <strong>Iterations:</strong> {iterations}
                 </div>
                 <div class="metric">
-                    <strong>Total Test Time:</strong> {total_test_time:.2f} ms
+                    <strong>Total Test Time:</strong> {total_test_time:.6f} ms
                 </div>
             </div>
         </div>
@@ -105,14 +105,14 @@ def create_performance_plot(benchmarks, output_dir, suffix=""):
     fig1 = px.bar(df, x='name', y='KernelTime_ms', title='Kernel Execution Time',
                   labels={'KernelTime_ms': 'Time (ms)', 'name': 'Benchmark Name'},
                   text='KernelTime_ms')
-    fig1.update_traces(texttemplate='%{text:.3f}', textposition='outside')
+    fig1.update_traces(texttemplate='%{text:.6f}', textposition='outside')
     fig1.update_layout(xaxis_tickangle=-45, width=800, height=400)
 
     # Create a bar plot for bandwidth
     fig2 = px.bar(df, x='name', y='Bandwidth_GB/s', title='Memory Bandwidth',
                   labels={'Bandwidth_GB/s': 'GB/s', 'name': 'Benchmark Name'},
                   text='Bandwidth_GB/s')
-    fig2.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+    fig2.update_traces(texttemplate='%{text:.6f}', textposition='outside')
     fig2.update_layout(xaxis_tickangle=-45, width=800, height=400)
 
     # Save the figures
@@ -186,9 +186,9 @@ def process_benchmark_results(json_file, suffix=""):
         print(f"Repetition Index: {repetition_index}")
         print(f"- Data Size: {size_kb:.2f} KB")
         print(f"- Kernel Time: {kernel_time:.6f} ms")
-        print(f"- Memory Bandwidth: {bandwidth:.2f} GB/s")
-        print(f"- Compute Throughput: {gflops:.2f} GFLOPS")
-        print(f"- Total Test Time: {total_test_time:.2f} ms\n")
+        print(f"- Memory Bandwidth: {bandwidth:.6f} GB/s")
+        print(f"- Compute Throughput: {gflops:.6f} GFLOPS")
+        print(f"- Total Test Time: {total_test_time:.6f} ms\n")
     
         if run_type == 'iteration':
             report.append(f"## {name} (Repetition {repetition_index})\n")
@@ -196,12 +196,12 @@ def process_benchmark_results(json_file, suffix=""):
             report.append(f"## {name}\n")
         report.append(f"- Data Size: {size_kb:.2f} KB")
         report.append(f"- Kernel Time: {kernel_time:.6f} ms")
-        report.append(f"- Memory Bandwidth: {bandwidth:.2f} GB/s")
-        report.append(f"- Compute Throughput: {gflops:.2f} GFLOPS")
-        report.append(f"- Total Test Time: {total_test_time:.2f} ms\n")
+        report.append(f"- Memory Bandwidth: {bandwidth:.6f} GB/s")
+        report.append(f"- Compute Throughput: {gflops:.6f} GFLOPS")
+        report.append(f"- Total Test Time: {total_test_time:.6f} ms\n")
 
     report.append("\n## Summary\n")
-    report.append(f"Total Execution Time: {total_time/1000:.2f} s\n")
+    report.append(f"Total Execution Time: {total_time/1000:.6f} s\n")
 
     # Write Markdown report
     with open(f"{output_dir}/report.md", 'w') as f:
@@ -238,7 +238,7 @@ def generate_markdown_report(df, total_time, output_dir, suffix=""):
     report = f"""# CUDA Benchmark Report{suffix}
 
 ## Summary
-- Total Execution Time: {total_time:.2f} ms
+- Total Execution Time: {total_time:.6f} ms
 - Number of Benchmarks: {len(df)}
 
 ## Performance Results
